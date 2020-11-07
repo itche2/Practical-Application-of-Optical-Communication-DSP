@@ -18,62 +18,16 @@ def signal_Constellation(sig):
     plt.figure()
     plt.title('Signal constellation diagram')
     plt.plot(sig[1].real, sig[1].imag,'b.')
-    plt.show()
-        
-def signal_compare(resampled_sig):
-    SS = resampled_sig
+    plt.show()        
 
-    ber_SS = SS.cal_ber()#BER of received signal
-    print ("Receiver BER =",ber_SS)
-
-    plt.figure()
-    plt.title('Received signal')
-    plt.plot(SS[0].real, SS[0].imag,'r.')
-
-    #mu = 3e-4 #equalizer step size
-    #ntaps = 13 # number of filter taps
-    mu = 2e-3 #equalizer step size; e.x.: 3e-4
-    ntaps = 21 # number of filter taps e.x.: 13
-    sps = 2 #samples per symbol
-    nmodes=1
-    wxy, err = equalisation.equalise_signal(SS, mu, Ntaps=ntaps, method="cma", adaptive_step=True, avoid_cma_sing=False)
-    E = equalisation.apply_filter(SS,  wxy)
-    if nmodes == 2:
-        muCMA = 1e-3
-        muRDE = 1.e-3
-        E , wx, (err, err_rde) = equalisation.dual_mode_equalisation(SS, (muCMA, muRDE), ntaps, methods=("mcma", "sbd"), adaptive=(True, True))
-        #wxy, err = equalisation.equalise_signal(SS, mu, Ntaps=ntaps, method="mcma", adaptive_step=True, avoid_cma_sing=False)
-    E = helpers.normalise_and_center(E)
-
-    SS = E
-    signal_rx = SS._signal_present(SS)
-    nmodes = signal_rx.shape[0]
-    syms_demod = SS.make_decision(signal_rx)
-    symbols_tx, syms_demod = SS._sync_and_adjust(SS.symbols, syms_demod, synced= False)
-    #(symbols_tx,syms_demod),act = ber_functions.sync_and_adjust(SS.symbols, syms_demod,"rx")
-    bits_demod = SS.demodulate(syms_demod)
-    tx_synced = SS.demodulate(symbols_tx)
-    errs = tx_synced ^ bits_demod 
-    SS = SS.recreate_from_np_array(syms_demod[:,3000:-3000])
-    E = SS
-    
-    ber = E.cal_ber()#BER of processed signal
-    print ("Processed signal BER =",ber)
-
-    plt.figure()
-    plt.title('Processed signal')
-    plt.plot(E[0].real, E[0].imag,'r.')
-    plt.show()
-    return E, ber
-
-def receiver_resample_signal(received_sig):
+def receiver_resample_signal(received_sig, ADCrate=80.e9,fs_dsp=None):
     #Resample signal
-    # DSO resampling at 80 GSa/s
-    ADCrate = 80.e9
+    # DSO resampling at ADC rate of 80 GSa/s
     resampled_sig = received_sig.resample(ADCrate, beta=0.1, renormalise=True)
 
     # DSP resampling signal at 2 times the baud rate (2Sa/symbol)
-    fs_dsp=resampled_sig.fb*2
+    if fs_dsp == None:
+        fs_dsp=received_sig.fb*2
     resampled_sig = resampled_sig.resample(fs_dsp, beta=0.1, renormalise=True)
 
     return resampled_sig
@@ -82,15 +36,16 @@ def receive_signal_compressed():
     #Receives signal by resampling
     #Reading signal from compressed text file
     received_sig = io.load_signal('saved_signal.txt')
+    
     #Sampling the transmitted signal at the receiver
     resampled_sig = receiver_resample_signal(received_sig)
     return resampled_sig
 
-def receive_signal(ADCrate=80.e9, signal_r = None, signal_rd=None, DACrate = None, M = None, N = None, nmodes = None, fb = None, bitclass = None, dtype = None, **kwargs):
+def import_signal(ADCrate=80.e9, signal_r = None, signal_rd=None, DACrate = None, M = None, N = None, nmodes = None, fb = None, bitclass = None, dtype = None, **kwargs):
     #Receives signal by resampling
     #Importing signal
     if signal_r or signal_rd or DACrate or M or N or nmodes or fb or bitclass or dtype is None:
-        signal_r, signal_rd, DACrate, M, N, nmodes, fb, bitclass, dtype, kwargs = import_signal()
+        signal_r, signal_rd, DACrate, M, N, nmodes, fb, bitclass, dtype, kwargs = read_signal()
     if bitclass [8:-3] == 'qampy.signals.RandomBits':
         bitclass = signals.RandomBits
     if dtype[8:-3]=='numpy.complex128':
@@ -109,10 +64,10 @@ def receive_signal(ADCrate=80.e9, signal_r = None, signal_rd=None, DACrate = Non
     received_sig = orig_sig.recreate_from_np_array(signal_r)
     
     #Sampling the transmitted signal at the receiver
-    resampled_sig = receiver_resample_signal(received_sig)
-    return resampled_sig
+##    resampled_sig = receiver_resample_signal(received_sig)
+    return received_sig
 
-def import_signal(fname="data_files", f_sig_p="data_files/sig_prop.txt"):
+def read_signal(fname="data_files", f_sig_p="data_files/sig_prop.txt"):
     #Imports and reads signal from text file
     #Reading signal transmitted generated
     with open(fname + "/tmp_real_X.txt", 'r') as RX:
@@ -189,23 +144,23 @@ def equalize_synchronize_signal(resampled_sig, mu=None, ntaps=None, method=None,
     return E, ber, errs ,tx_synced
 
 def recreate_signal_with_synced_transmitter_symbols(sig, M, tx_synced): 
-    #recreating signal with synced transmitter symbol
+    #recreating signal with synced transmitter symbol bitarray
     sig_temp = sig.from_bit_array(tx_synced, M, sig._fb)
     synced_sig = sig_temp.recreate_from_np_array(sig)
     ber_synced_sig = synced_sig.cal_ber(synced_sig)
     return synced_sig, ber_synced_sig
 
-def interpolate_signal(sig):
-    #Generate a interpolated signal
-    x = np.linspace(0, len(sig[0])-1, len(sig[0]), endpoint=True)
-    f1 = interp1d(x, sig[0], kind='cubic')
-    f2 = interp1d(x, sig[1], kind='cubic')
-    sig_n=[[],[]]
-
-    x_n=np.linspace(0.5, len(sig[0])-1-0.5, len(sig[0])-1, endpoint=True)
-    sig_n = np.asarray([f1(x_n), f2(x_n)])
-    sig_n = sig.recreate_from_np_array(sig_n)
-    return sig_n
+##def interpolate_signal(sig):
+##    #Generate a interpolated signal
+##    x = np.linspace(0, len(sig[0])-1, len(sig[0]), endpoint=True)
+##    f1 = interp1d(x, sig[0], kind='cubic')
+##    f2 = interp1d(x, sig[1], kind='cubic')
+##    sig_n=[[],[]]
+##
+##    x_n=np.linspace(0.5, len(sig[0])-1-0.5, len(sig[0])-1, endpoint=True)
+##    sig_n = np.asarray([f1(x_n), f2(x_n)])
+##    sig_n = sig.recreate_from_np_array(sig_n)
+##    return sig_n
 
 
 
