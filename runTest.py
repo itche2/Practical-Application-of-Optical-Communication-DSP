@@ -8,11 +8,6 @@ import matplotlib.pylab as plt
 from scipy import special
 from plotSetup import plot_setup_SNR, plot_setup_linewidth
 import pdb
-##import sys
-##from scipy.optimize import curve_fit
-##import math
-##import qampy.helpers
-#receive_signal_compressed, read_signal, recreate_signal_with_synced_transmitter_symbols, signal_Constellation, interpolate_signal
 
 #Signal properties
 DACrate = 92.e9         #DAC Sampling frequency (fs) at AWG output
@@ -31,13 +26,12 @@ shift = np.random.randint(-N/2, N/2, 1)
 Tx = delay(Tx, shift=0, nmodes=nmodes)                          #Shifting signal to simulate delay
 Tx=interpolate_signal(Tx)                                       #Interpolating signal
 Tx = extend_signal(Tx,xtnd_w_zero=0)                            #Extending signal to fit 2^18 symbols    
-export_signal(DACrate, Tx, M, N, nmodes, fb, compress=True)     #Exporting transmitted signal into files
+export_signal(DACrate, Tx, M, N, nmodes, fb, compress=False)     #Exporting transmitted signal into files
 
 
 #Receiver side
-Rx = import_signal()                            #Importing signal
+Rx = import_signal(M,fb,Nsc,DACrate)                            #Importing signal
 resampled_sig = receiver_resample_signal(Rx)    #Resampling signal
-##E, ber, errs ,tx_synced = equalize_synchronize_signal(resampled_sig = resampled_sig)  #Equalizing and synchronizing signal
 
 #############################################
 ## Setting up signal quality metrics
@@ -70,8 +64,6 @@ for sr in snr:
     gmi[i] = E.cal_gmi()[0]
     i += 1
 
-##Q_fc = special.erfcinv(ber*2)*np.sqrt(2)
-pdb.set_trace()
 Q_fc = 20*np.log10(special.erfcinv(ber*2)*np.sqrt(2)) #Calculating Q-factor
 plot_setup_SNR(M,N,snrf,snr,ber,ser,evmf,evm1,evm_known,gmi,Q_fc)
 
@@ -105,12 +97,9 @@ plot_setup_linewidth(M,lwdth,ber,ser,evmf,evm1,evm_known,gmi,Q_fc)
 
 ##############################################################################################
 
-pdb.set_trace()
 plt.show()    
 
 
-##signal_Constellation(E) #Plotting the signal constellation of signal
-##SignalWithPilots(M, frame_len, pilot_seq_len, pilot_ins_rat, nframes=1, pilot_scale=1, Mpilots=4, dataclass=SignalQAMGrayCoded, nmodes=1, dtype=np.complex128)
 
 
 

@@ -41,11 +41,11 @@ def receive_signal_compressed():
     resampled_sig = receiver_resample_signal(received_sig)
     return resampled_sig
 
-def import_signal(ADCrate=80.e9, signal_r = None, signal_rd=None, DACrate = None, M = None, N = None, nmodes = None, fb = None, bitclass = None, dtype = None, **kwargs):
+def import_signal(M, fb, Nsc, DACrate, ADCrate=80.e9, signal_r = None, signal_rd=None, N = None, nmodes = None, bitclass = None, dtype = None, **kwargs):
     #Receives signal by resampling
     #Importing signal
     if signal_r or signal_rd or DACrate or M or N or nmodes or fb or bitclass or dtype is None:
-        signal_r, signal_rd, DACrate, M, N, nmodes, fb, bitclass, dtype, kwargs = read_signal()
+        signal_r, signal_rd, DACrate, M, N, nmodes, fb, bitclass, dtype, kwargs = read_signal(M, fb, Nsc, DACrate)
     if bitclass [8:-3] == 'qampy.signals.RandomBits':
         bitclass = signals.RandomBits
     if dtype[8:-3]=='numpy.complex128':
@@ -63,32 +63,30 @@ def import_signal(ADCrate=80.e9, signal_r = None, signal_rd=None, DACrate = None
     orig_sig._symbols = orig_sig
     received_sig = orig_sig.recreate_from_np_array(signal_r)
     
-    #Sampling the transmitted signal at the receiver
-##    resampled_sig = receiver_resample_signal(received_sig)
     return received_sig
 
-def read_signal(fname="data_files", f_sig_p="data_files/sig_prop.txt"):
+def read_signal(M, fb, Nsc, DACrate, fname="data_files"):
     #Imports and reads signal from text file
     #Reading signal transmitted generated
-    with open(fname + "/tmp_real_X.txt", 'r') as RX:
+    with open(fname + "/RRC_PM" + str(M) + "_" + str(fb/(10**9)) + "Gbd_" + str(Nsc) + "_sc_" + str(DACrate/(10**9)) + "GSaps_real_X.txt", 'r') as RX:
         rx = RX.read().splitlines()
-    with open(fname + "/tmp_imag_X.txt", 'r') as IX:
-        ix = IX.read().splitlines()                
-    with open(fname + "/tmp_real_Y.txt", 'r') as RY:
-        ry = RY.read().splitlines()        
-    with open(fname + "/tmp_imag_Y.txt", 'r') as IY:
+    with open(fname + "/RRC_PM" + str(M) + "_" + str(fb/(10**9)) + "Gbd_" + str(Nsc) + "_sc_" + str(DACrate/(10**9)) + "GSaps_imag_X.txt", 'r') as IX:
+        ix = IX.read().splitlines() 
+    with open(fname + "/RRC_PM" + str(M) + "_" + str(fb/(10**9)) + "Gbd_" + str(Nsc) + "_sc_" + str(DACrate/(10**9)) + "GSaps_real_Y.txt", 'r') as RY:
+        ry = RY.read().splitlines() 
+    with open(fname + "/RRC_PM" + str(M) + "_" + str(fb/(10**9)) + "Gbd_" + str(Nsc) + "_sc_" + str(DACrate/(10**9)) + "GSaps_imag_Y.txt", 'r') as IY:
         iy = IY.read().splitlines()        
 
-
     #Reading original data generated
-    with open(fname + "/data_real_X.txt", 'r') as RX_D:
+    with open(fname + "/generated_data/RRC_PM" + str(M) + "_" + str(fb/(10**9)) + "Gbd_" + str(Nsc) + "_sc_" + str(DACrate/(10**9)) + "GSaps_data_real_X.txt", 'r') as RX_D:
         rxd = RX_D.read().splitlines()
-    with open(fname + "/data_imag_X.txt", 'r') as IXD:
+    with open(fname + "/generated_data/RRC_PM" + str(M) + "_" + str(fb/(10**9)) + "Gbd_" + str(Nsc) + "_sc_" + str(DACrate/(10**9)) + "GSaps_data_imag_X.txt", 'r') as IXD:
         ixd = IXD.read().splitlines()               
-    with open(fname + "/data_real_Y.txt", 'r') as RYD:
+    with open(fname + "/generated_data/RRC_PM" + str(M) + "_" + str(fb/(10**9)) + "Gbd_" + str(Nsc) + "_sc_" + str(DACrate/(10**9)) + "GSaps_data_real_Y.txt", 'r') as RYD:
         ryd = RYD.read().splitlines()
-    with open(fname + "/data_imag_Y.txt", 'r') as IYD:
+    with open(fname + "/generated_data/RRC_PM" + str(M) + "_" + str(fb/(10**9)) + "Gbd_" + str(Nsc) + "_sc_" + str(DACrate/(10**9)) + "GSaps_data_imag_Y.txt", 'r') as IYD:
         iyd = IYD.read().splitlines()
+
 
     #Rebuilding signal transmitted
     x_temp = np.complex128(ix)
@@ -101,6 +99,7 @@ def read_signal(fname="data_files", f_sig_p="data_files/sig_prop.txt"):
     signal_r = np.complex128(signal_r)
 
     #Getting signal properties from file
+    f_sig_p = "data_files/RRC_PM" + str(M) + "_" + str(fb/(10**9)) + "Gbd_" + str(Nsc) + "_sc_" + str(DACrate/(10**9)) + "GSaps_sig_prop.txt"
     f_sigProp = open(f_sig_p, "r")
     DACrate = float(f_sigProp.readline())
     M = int(f_sigProp.readline())
@@ -120,8 +119,7 @@ def read_signal(fname="data_files", f_sig_p="data_files/sig_prop.txt"):
     yd_temp = yd_temp + np.complex128(ryd)
     signal_rd = [xd_temp, yd_temp]
     signal_rd = np.complex128(signal_rd)
-    
-    
+     
     return signal_r, signal_rd, DACrate, M, N, nmodes, fb, bitclass, dtype, kwargs
 
 
@@ -150,20 +148,4 @@ def recreate_signal_with_synced_transmitter_symbols(sig, M, tx_synced):
     ber_synced_sig = synced_sig.cal_ber(synced_sig)
     return synced_sig, ber_synced_sig
 
-##def interpolate_signal(sig):
-##    #Generate a interpolated signal
-##    x = np.linspace(0, len(sig[0])-1, len(sig[0]), endpoint=True)
-##    f1 = interp1d(x, sig[0], kind='cubic')
-##    f2 = interp1d(x, sig[1], kind='cubic')
-##    sig_n=[[],[]]
-##
-##    x_n=np.linspace(0.5, len(sig[0])-1-0.5, len(sig[0])-1, endpoint=True)
-##    sig_n = np.asarray([f1(x_n), f2(x_n)])
-##    sig_n = sig.recreate_from_np_array(sig_n)
-##    return sig_n
 
-
-
-
-
-    
