@@ -1,9 +1,9 @@
 import numpy as np
 from qampy.core import ber_functions, impairments
 from qampy import impairments, signals,equalisation, helpers, phaserec, theory
-from signalGenerate_v4 import transmit_signal, export_signal
-from signalReceive_v8 import receiver_resample_signal, equalize_synchronize_signal, import_signal
-from signal_Impairments_v0 import interpolate_signal, extend_signal, delay
+from signalGenerate import transmit_signal, export_signal
+from signalReceive import receiver_resample_signal, equalize_synchronize_signal, import_signal
+from signal_Impairments import interpolate_signal, extend_signal, delay
 import matplotlib.pylab as plt
 from scipy import special
 from plotSetup import plot_setup_SNR, plot_setup_linewidth
